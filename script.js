@@ -74,7 +74,9 @@ function switchTab(selectedMode) {
 
 document.getElementById('upload-cover').addEventListener('change', (e) => handleImageUpload(e.target.files[0], 'preview-cover', true));
 document.getElementById('upload-decode').addEventListener('change', (e) => handleImageUpload(e.target.files[0], 'preview-decode', false));
-
+document.getElementById('pass-encode').addEventListener('input', function(e) {
+    updateStrengthMeter(e.target.value);
+});
 document.getElementById('upload-secret').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if(!file) return;
@@ -307,4 +309,56 @@ function decodeProcess() {
             a.click();
         };
     }
+}
+// --- SECURITY METRICS ---
+
+function updateStrengthMeter(password) {
+    const meter = document.getElementById('strength-meter');
+    const fill = document.getElementById('strength-fill');
+    const timeText = document.getElementById('time-text');
+
+    if (password.length === 0) {
+        meter.style.display = 'none';
+        return;
+    }
+
+    meter.style.display = 'block';
+
+    // 1. Calculate Pool Size
+    let poolSize = 0;
+    if (/[a-z]/.test(password)) poolSize += 26;
+    if (/[A-Z]/.test(password)) poolSize += 26;
+    if (/[0-9]/.test(password)) poolSize += 10;
+    if (/[^a-zA-Z0-9]/.test(password)) poolSize += 32; // Special chars
+
+    // 2. Calculate Entropy (Bits) = Length * log2(PoolSize)
+    const entropy = password.length * Math.log2(poolSize || 1);
+
+    // 3. Estimate Crack Time (Assuming 1 Trillion guesses/sec for a supercomputer)
+    const guessesPerSec = 1_000_000_000_000; 
+    const totalGuesses = Math.pow(2, entropy);
+    const seconds = totalGuesses / guessesPerSec;
+
+    // 4. Visual Updates
+    let color = 'red';
+    let width = '10%';
+    
+    if (entropy > 50) { color = 'orange'; width = '40%'; }
+    if (entropy > 70) { color = '#fbbf24'; width = '70%'; } // Yellow
+    if (entropy > 90) { color = '#10b981'; width = '100%'; } // Green
+
+    fill.style.width = width;
+    fill.style.background = color;
+    timeText.innerText = formatTime(seconds);
+    timeText.style.color = color;
+}
+
+function formatTime(seconds) {
+    if (seconds < 1) return "Instantly";
+    if (seconds < 60) return "Few seconds";
+    if (seconds < 3600) return Math.round(seconds / 60) + " minutes";
+    if (seconds < 86400) return Math.round(seconds / 3600) + " hours";
+    if (seconds < 31536000) return Math.round(seconds / 86400) + " days";
+    if (seconds < 3153600000) return Math.round(seconds / 31536000) + " years";
+    return "Centuries";
 }
