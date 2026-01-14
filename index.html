@@ -73,7 +73,11 @@
             <div class="input-group">
                 <label>3. Encryption Key (Optional)</label>
                 <input type="password" id="pass-encode" placeholder="Create a password">
+            <div id="strength-meter" class="hidden">
+                <div class="strength-bar"><div id="strength-fill"></div></div>
+                <p id="crack-time">Time to crack: <span id="time-text">...</span></p>
             </div>
+           </div>
 
             <button id="encode-btn" class="btn-primary" disabled>Process & Download</button>
             <div id="capacity-bar"><div id="capacity-fill"></div></div>
