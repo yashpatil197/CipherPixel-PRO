@@ -218,3 +218,35 @@ textarea {
     max-height: 200px;
     overflow-y: auto;
 }
+/* Password Strength Meter */
+#strength-meter {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    transition: 0.3s;
+}
+
+.strength-bar {
+    height: 4px;
+    background: #374151;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+#strength-fill {
+    height: 100%;
+    width: 0%;
+    background: red;
+    transition: width 0.3s, background 0.3s;
+}
+
+#crack-time {
+    margin: 0;
+    color: #9ca3af;
+    font-family: monospace;
+}
+
+#time-text {
+    font-weight: bold;
+    color: var(--text);
+}
