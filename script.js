@@ -191,7 +191,8 @@ function encodeProcess() {
         nameHeader = secretFileName;
     }
 
-    const header = `${typeHeader}|${nameHeader}|${payloadBuffer.length}|`;
+    // --- CHANGE IS HERE: ADDED "BITS|" ---
+    const header = `BITS|${typeHeader}|${nameHeader}|${payloadBuffer.length}|`;
     let binaryStream = "";
     
     for (let i = 0; i < header.length; i++) {
@@ -243,6 +244,7 @@ function decodeProcess() {
     let metadataRead = false;
     let pixelIdx = 0;
 
+    // --- CHANGE IS HERE: HEADER PARSING LOGIC ---
     while (!metadataRead && pixelIdx < pixels.length) {
         if ((pixelIdx + 1) % 4 === 0) pixelIdx++;
         binaryStream += (pixels[pixelIdx] & 1).toString();
@@ -256,10 +258,18 @@ function decodeProcess() {
             if (char === '|') {
                 headerParts.push(extractedChars.slice(0, -1));
                 extractedChars = "";
-                if (headerParts.length === 3) {
-                    type = headerParts[0]; 
-                    fileName = headerParts[1];
-                    payloadLen = parseInt(headerParts[2]);
+
+                // CHECK 1: Is this a valid image?
+                if (headerParts.length === 1 && headerParts[0] !== "BITS") {
+                    alert("ERROR: No hidden data found in this image!");
+                    return; 
+                }
+
+                // CHECK 2: Do we have all 4 parts? (BITS | type | name | size)
+                if (headerParts.length === 4) {
+                    type = headerParts[1]; 
+                    fileName = headerParts[2];
+                    payloadLen = parseInt(headerParts[3]);
                     metadataRead = true;
                 }
             }
@@ -310,6 +320,7 @@ function decodeProcess() {
         };
     }
 }
+
 // --- SECURITY METRICS ---
 
 function updateStrengthMeter(password) {
