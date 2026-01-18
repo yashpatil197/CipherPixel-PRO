@@ -16,18 +16,22 @@ document.addEventListener('DOMContentLoaded', () => {
         appContainer.classList.remove('hidden');
         navbar.classList.remove('hidden');
         
+        // Reset body classes
         document.body.classList.remove('mode-encrypt', 'mode-decrypt');
         
         const cardEncode = document.getElementById('card-encode');
         const cardDecode = document.getElementById('card-decode');
 
+        // Force hide both
         cardEncode.classList.add('hidden-card');
         cardDecode.classList.add('hidden-card');
         
         if (mode === 'encode') {
+            // GREEN MODE
             cardEncode.classList.remove('hidden-card');
             document.body.classList.add('mode-encrypt');
         } else {
+            // PURPLE MODE
             cardDecode.classList.remove('hidden-card');
             document.body.classList.add('mode-decrypt');
         }
@@ -37,6 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
         landingPage.classList.remove('hidden');
         appContainer.classList.add('hidden');
         navbar.classList.add('hidden');
+        
+        // Remove color modes to reset to default
         document.body.classList.remove('mode-encrypt', 'mode-decrypt');
         resetAll();
     };
@@ -128,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('capacity-text').innerText = `${percentage.toFixed(2)}% Capacity Used`;
         
         if (percentage > 90) fill.style.backgroundColor = 'red';
-        else fill.style.backgroundColor = 'var(--primary-color)';
+        else fill.style.backgroundColor = 'var(--primary-color)'; // Use variable
     }
 
     // --- ENCODING LOGIC ---
@@ -335,28 +341,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if(!slider || !overlay || !container) return;
 
-        // Function to set dimensions
         function setDimensions() {
             let w = container.offsetWidth;
             slider.style.left = (w / 2) + "px";
             overlay.style.width = (w / 2) + "px";
         }
-
-        // Initialize
         setDimensions();
-
-        // Re-calculate on window resize (Responsive Fix)
         window.addEventListener('resize', setDimensions);
 
         let clicked = 0;
-
         slider.addEventListener("mousedown", slideReady);
         window.addEventListener("mouseup", slideFinish);
         slider.addEventListener("touchstart", slideReady, {passive: false});
         window.addEventListener("touchend", slideFinish);
 
         function slideReady(e) {
-            // Prevent scrolling on touch devices while sliding
             if(e.type === 'touchstart') e.preventDefault(); 
             clicked = 1;
             window.addEventListener("mousemove", slideMove);
@@ -365,7 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function slideFinish() {
             clicked = 0;
-            // Clean up event listeners
             window.removeEventListener("mousemove", slideMove);
             window.removeEventListener("touchmove", slideMove);
         }
