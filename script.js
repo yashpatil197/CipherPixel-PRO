@@ -1,375 +1,388 @@
-// --- STATE VARIABLES ---
-let mode = 'text'; // 'text' or 'file'
-let coverImageLoaded = false;
-let secretFileLoaded = false;
-let secretFileBuffer = null;
-let secretFileName = "";
+// --- DOM ELEMENTS ---
+const appContainer = document.getElementById('app-container');
+const landingPage = document.getElementById('landing-page');
+const navbar = document.getElementById('navbar');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
 
-// --- INITIALIZATION ---
-// Force correct state when page loads
-window.onload = function() {
-    document.getElementById('landing-page').style.display = 'flex';
-    document.getElementById('app-container').style.display = 'none';
-    document.getElementById('navbar').style.display = 'none';
+let coverImage = null; // Stores the loaded image object
+let secretFile = null; // Stores the file to hide (if any)
+let currentMode = 'text'; // 'text' or 'file'
+
+// --- NAVIGATION ---
+function showApp(mode) {
+    landingPage.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+    navbar.classList.remove('hidden');
     
-    // Default tab state
-    switchTab('text');
-}
+    document.getElementById('card-encode').classList.add('hidden-card');
+    document.getElementById('card-decode').classList.add('hidden-card');
 
-// --- NAVIGATION LOGIC ---
-
-function showApp(action) {
-    // 1. Hide Landing Page
-    document.getElementById('landing-page').style.display = 'none';
-    
-    // 2. Show App Container & Navbar
-    document.getElementById('app-container').style.display = 'flex';
-    document.getElementById('navbar').style.display = 'flex';
-
-    // 3. Reset Cards (Hide Both)
-    document.getElementById('card-encode').style.display = 'none';
-    document.getElementById('card-decode').style.display = 'none';
-
-    // 4. Show Selected Card
-    if(action === 'encode') {
-        document.getElementById('card-encode').style.display = 'flex';
-    } else {
-        document.getElementById('card-decode').style.display = 'flex';
-    }
+    if (mode === 'encode') document.getElementById('card-encode').classList.remove('hidden-card');
+    else document.getElementById('card-decode').classList.remove('hidden-card');
 }
 
 function goHome() {
-    // Simple reload to reset everything
-    location.reload();
+    landingPage.classList.remove('hidden');
+    appContainer.classList.add('hidden');
+    navbar.classList.add('hidden');
+    resetAll();
 }
 
-function switchTab(selectedMode) {
-    mode = selectedMode;
-    
-    // 1. Update Buttons Visuals
-    const textBtn = document.querySelectorAll('.tab-btn')[0];
-    const fileBtn = document.querySelectorAll('.tab-btn')[1];
+function switchTab(tab) {
+    currentMode = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
 
-    if(mode === 'text') {
-        textBtn.classList.add('active');
-        fileBtn.classList.remove('active');
-        
-        // 2. Force Show/Hide Inputs
-        document.getElementById('input-text-section').style.display = 'block';
-        document.getElementById('input-file-section').style.display = 'none';
+    if (tab === 'text') {
+        document.getElementById('input-text-section').classList.remove('hidden');
+        document.getElementById('input-file-section').classList.add('hidden');
     } else {
-        fileBtn.classList.add('active');
-        textBtn.classList.remove('active');
-
-        // 2. Force Show/Hide Inputs
-        document.getElementById('input-text-section').style.display = 'none';
-        document.getElementById('input-file-section').style.display = 'block';
+        document.getElementById('input-text-section').classList.add('hidden');
+        document.getElementById('input-file-section').classList.remove('hidden');
     }
-    
     checkCapacity();
 }
 
+function toggleTheme() {
+    document.body.classList.toggle('hacker-mode');
+}
 
-// --- UPLOAD HANDLERS ---
-
-document.getElementById('upload-cover').addEventListener('change', (e) => handleImageUpload(e.target.files[0], 'preview-cover', true));
-document.getElementById('upload-decode').addEventListener('change', (e) => handleImageUpload(e.target.files[0], 'preview-decode', false));
-document.getElementById('pass-encode').addEventListener('input', function(e) {
-    updateStrengthMeter(e.target.value);
+// --- FILE UPLOADS ---
+document.getElementById('upload-cover').addEventListener('change', function(e) {
+    handleImageUpload(e.target.files[0], 'preview-cover', true);
 });
+
+document.getElementById('upload-decode').addEventListener('change', function(e) {
+    handleImageUpload(e.target.files[0], 'preview-decode', false);
+});
+
 document.getElementById('upload-secret').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if(!file) return;
-    secretFileName = file.name;
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-        secretFileBuffer = evt.target.result;
-        secretFileLoaded = true;
-        document.getElementById('file-info').innerText = `Selected: ${file.name} (${formatBytes(file.size)})`;
+    if(e.target.files.length > 0) {
+        secretFile = e.target.files[0];
+        document.getElementById('file-info').innerText = `Selected: ${secretFile.name} (${(secretFile.size/1024).toFixed(1)} KB)`;
+        document.getElementById('file-info').classList.remove('hidden');
         checkCapacity();
-    };
-    reader.readAsArrayBuffer(file);
+    }
 });
 
-// Text Area Capacity Check
-document.getElementById('secret-text').addEventListener('input', checkCapacity);
-
-
-function handleImageUpload(file, imgId, isEncode) {
-    if(!file) return;
+function handleImageUpload(file, previewId, isEncode) {
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
-        const img = document.getElementById(imgId);
-        img.src = e.target.result;
-        img.style.display = 'block';
+    reader.onload = function(event) {
+        const img = new Image();
         img.onload = function() {
-            if(isEncode) {
-                coverImageLoaded = true;
+            if (isEncode) {
+                coverImage = img;
                 checkCapacity();
+                document.getElementById('encode-btn').disabled = false;
             } else {
                 document.getElementById('decode-btn').disabled = false;
+                document.getElementById('btn-steg-vision').classList.remove('hidden');
             }
+            document.getElementById(previewId).src = event.target.result;
+            document.getElementById(previewId).classList.remove('hidden');
         }
+        img.src = event.target.result;
     }
     reader.readAsDataURL(file);
 }
 
+// --- CAPACITY CHECKER ---
+document.getElementById('secret-text').addEventListener('input', checkCapacity);
+
 function checkCapacity() {
-    if (!coverImageLoaded) return;
-    
-    const img = document.getElementById('preview-cover');
-    const totalBitsAvailable = (img.naturalWidth * img.naturalHeight) * 3;
-    
-    let requiredBits = 0;
+    if (!coverImage) return;
 
-    if (mode === 'text') {
-        const text = document.getElementById('secret-text').value;
-        if(text.length === 0) return;
-        requiredBits = (text.length * 8) + 800; 
-    } else {
-        if (!secretFileLoaded) return;
-        requiredBits = (secretFileBuffer.byteLength * 8) + 800;
+    // Max capacity (using 3 bits per channel per pixel, usually safe is LSB 1-2 bits but let's assume 1 bit per channel RGB = 3 bits per pixel)
+    // Safe Estimate: Width * Height * 3 bits / 8 (bytes)
+    const maxBytes = (coverImage.width * coverImage.height * 3) / 8;
+    
+    let usedBytes = 0;
+    if (currentMode === 'text') {
+        usedBytes = document.getElementById('secret-text').value.length;
+    } else if (secretFile) {
+        usedBytes = secretFile.size;
     }
 
-    const percent = (requiredBits / totalBitsAvailable) * 100;
+    const percentage = Math.min((usedBytes / maxBytes) * 100, 100);
     const fill = document.getElementById('capacity-fill');
-    const text = document.getElementById('capacity-text');
-    const btn = document.getElementById('encode-btn');
-
-    fill.style.width = percent + "%";
-    text.innerText = `${percent.toFixed(2)}% Capacity Used`;
-
-    if (percent > 100) {
-        fill.style.background = "red";
-        btn.disabled = true;
-    } else {
-        fill.style.background = "#10b981";
-        btn.disabled = false;
-    }
-}
-
-function formatBytes(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-
-// --- CORE ENGINE (Unified) ---
-
-document.getElementById('encode-btn').addEventListener('click', encodeProcess);
-document.getElementById('decode-btn').addEventListener('click', decodeProcess);
-
-function encodeProcess() {
-    const password = document.getElementById('pass-encode').value;
-    const img = document.getElementById('preview-cover');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    fill.style.width = percentage + '%';
+    document.getElementById('capacity-text').innerText = `${percentage.toFixed(2)}% Capacity Used`;
     
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    ctx.drawImage(img, 0, 0);
+    if (percentage > 90) fill.style.backgroundColor = 'red';
+    else fill.style.backgroundColor = 'var(--success-color)';
+}
+
+// --- ENCODING LOGIC ---
+document.getElementById('encode-btn').addEventListener('click', async function() {
+    if (!coverImage) return;
+    
+    const password = document.getElementById('pass-encode').value;
+    let dataToHide = '';
+
+    // 1. Prepare Data
+    if (currentMode === 'text') {
+        const text = document.getElementById('secret-text').value;
+        if (!text) return alert("Please enter text.");
+        dataToHide = JSON.stringify({ type: 'text', data: text });
+    } else {
+        if (!secretFile) return alert("Please select a file.");
+        const fileData = await readFileAsBase64(secretFile);
+        dataToHide = JSON.stringify({ type: 'file', name: secretFile.name, data: fileData });
+    }
+
+    // 2. Encrypt (Simple XOR for demo, use AES in production)
+    if (password) {
+        dataToHide = encryptData(dataToHide, password);
+    }
+    
+    // Prefix with length so we know how much to read back
+    const binaryData = stringToBinary(dataToHide);
+    
+    // 3. Draw to Canvas & Embed
+    canvas.width = coverImage.width;
+    canvas.height = coverImage.height;
+    ctx.drawImage(coverImage, 0, 0);
     
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imgData.data;
 
-    let payloadBuffer;
-    let typeHeader = ""; 
-    let nameHeader = ""; 
-
-    if (mode === 'text') {
-        const text = document.getElementById('secret-text').value;
-        const encoder = new TextEncoder();
-        payloadBuffer = encoder.encode(text);
-        typeHeader = "txt";
-        nameHeader = "msg"; 
-    } else {
-        payloadBuffer = new Uint8Array(secretFileBuffer);
-        typeHeader = "file";
-        nameHeader = secretFileName;
+    if (binaryData.length > pixels.length * 0.75) { // 3 channels (RGB) used
+        return alert("Data is too large for this image!");
     }
 
-    // --- CHANGE IS HERE: ADDED "BITS|" ---
-    const header = `BITS|${typeHeader}|${nameHeader}|${payloadBuffer.length}|`;
-    let binaryStream = "";
-    
-    for (let i = 0; i < header.length; i++) {
-        binaryStream += header.charCodeAt(i).toString(2).padStart(8, '0');
-    }
-
-    for (let i = 0; i < payloadBuffer.length; i++) {
-        let byte = payloadBuffer[i];
-        if(password) {
-            byte = byte ^ password.charCodeAt(i % password.length);
-        }
-        binaryStream += byte.toString(2).padStart(8, '0');
-    }
-
+    // Embed Length (Fixed 32 bits header)
+    const lengthBin = binaryData.length.toString(2).padStart(32, '0');
     let dataIndex = 0;
-    for (let i = 0; i < binaryStream.length; i++) {
-        if ((dataIndex + 1) % 4 === 0) dataIndex++; 
-        let bit = binaryStream[i];
-        pixels[dataIndex] = (pixels[dataIndex] & 254) | parseInt(bit);
+
+    // Embed Header first
+    for (let i = 0; i < 32; i++) {
+        if (lengthBin[i] === '1') pixels[i * 4] |= 1; // Set LSB to 1
+        else pixels[i * 4] &= ~1; // Set LSB to 0
+    }
+
+    // Embed Body
+    for (let i = 0; i < binaryData.length; i++) {
+        const pixelIdx = (i + 32) * 4; // Skip alpha channel, skip header pixels
+        // Simple sequential embedding (R channel, then G, then B... could be optimized)
+        // Here we just use Red channel of subsequent pixels for simplicity
+        // Better: Use R, G, B sequentially.
+        
+        // Let's keep it simple: Use Red channel of every pixel starting from 32
+        if (binaryData[dataIndex] === '1') pixels[pixelIdx] |= 1;
+        else pixels[pixelIdx] &= ~1;
         dataIndex++;
     }
 
     ctx.putImageData(imgData, 0, 0);
-    const link = document.createElement('a');
-    link.download = 'stegavault_secure.png';
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-}
 
-function decodeProcess() {
-    const password = document.getElementById('pass-decode').value;
-    const img = document.getElementById('preview-decode');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    // 4. Output Result
+    const resultURL = canvas.toDataURL('image/png');
     
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    ctx.drawImage(img, 0, 0);
+    // Setup Comparison Slider
+    const compOriginal = document.getElementById('comp-original');
+    const compEncoded = document.getElementById('comp-encoded');
+    
+    compOriginal.src = coverImage.src;
+    compEncoded.src = resultURL;
+    
+    document.getElementById('encode-result').classList.remove('hidden');
+    document.getElementById('download-link').href = resultURL;
+    
+    initComparisonSlider();
+});
 
+// --- DECODING LOGIC ---
+document.getElementById('decode-btn').addEventListener('click', function() {
+    const preview = document.getElementById('preview-decode');
+    if (!preview.src) return;
+
+    canvas.width = preview.naturalWidth;
+    canvas.height = preview.naturalHeight;
+    ctx.drawImage(preview, 0, 0);
+    
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imgData.data;
 
-    let binaryStream = "";
-    let extractedChars = "";
-    let headerParts = [];
-    let payloadLen = 0;
-    let type = "";
-    let fileName = "";
-    let metadataRead = false;
-    let pixelIdx = 0;
+    // 1. Extract Length Header
+    let lengthBin = '';
+    for (let i = 0; i < 32; i++) {
+        lengthBin += (pixels[i * 4] & 1);
+    }
+    const dataLength = parseInt(lengthBin, 2);
 
-    // --- CHANGE IS HERE: HEADER PARSING LOGIC ---
-    while (!metadataRead && pixelIdx < pixels.length) {
-        if ((pixelIdx + 1) % 4 === 0) pixelIdx++;
-        binaryStream += (pixels[pixelIdx] & 1).toString();
-        pixelIdx++;
-
-        if (binaryStream.length === 8) {
-            let char = String.fromCharCode(parseInt(binaryStream, 2));
-            extractedChars += char;
-            binaryStream = "";
-
-            if (char === '|') {
-                headerParts.push(extractedChars.slice(0, -1));
-                extractedChars = "";
-
-                // CHECK 1: Is this a valid image?
-                if (headerParts.length === 1 && headerParts[0] !== "BITS") {
-                    alert("ERROR: No hidden data found in this image!");
-                    return; 
-                }
-
-                // CHECK 2: Do we have all 4 parts? (BITS | type | name | size)
-                if (headerParts.length === 4) {
-                    type = headerParts[1]; 
-                    fileName = headerParts[2];
-                    payloadLen = parseInt(headerParts[3]);
-                    metadataRead = true;
-                }
-            }
-        }
+    if (dataLength <= 0 || dataLength > pixels.length) {
+        return alert("No hidden data found or image corrupted.");
     }
 
-    const resultBytes = new Uint8Array(payloadLen);
-    let currentByte = 0;
-    binaryStream = ""; 
-
-    while (currentByte < payloadLen && pixelIdx < pixels.length) {
-        if ((pixelIdx + 1) % 4 === 0) pixelIdx++;
-        binaryStream += (pixels[pixelIdx] & 1).toString();
-        pixelIdx++;
-
-        if (binaryStream.length === 8) {
-            let byteVal = parseInt(binaryStream, 2);
-            if(password) byteVal = byteVal ^ password.charCodeAt(currentByte % password.length);
-            resultBytes[currentByte] = byteVal;
-            currentByte++;
-            binaryStream = "";
-        }
+    // 2. Extract Body
+    let binaryData = '';
+    for (let i = 0; i < dataLength; i++) {
+        const pixelIdx = (i + 32) * 4;
+        binaryData += (pixels[pixelIdx] & 1);
     }
 
-    document.getElementById('result-area').style.display = 'block';
-    const textResult = document.getElementById('text-result');
-    const fileResult = document.getElementById('file-result');
-
-    textResult.style.display = 'none';
-    fileResult.style.display = 'none';
-
-    if (type === 'txt') {
-        const decoder = new TextDecoder();
-        const decodedText = decoder.decode(resultBytes);
-        textResult.innerText = decodedText;
-        textResult.style.display = 'block';
-    } else {
-        document.getElementById('found-filename').innerText = fileName;
-        fileResult.style.display = 'block';
-        
-        document.getElementById('download-secret-btn').onclick = function() {
-            const blob = new Blob([resultBytes], {type: "application/octet-stream"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-        };
-    }
-}
-
-// --- SECURITY METRICS ---
-
-function updateStrengthMeter(password) {
-    const meter = document.getElementById('strength-meter');
-    const fill = document.getElementById('strength-fill');
-    const timeText = document.getElementById('time-text');
-
-    if (password.length === 0) {
-        meter.style.display = 'none';
-        return;
-    }
-
-    meter.style.display = 'block';
-
-    // 1. Calculate Pool Size
-    let poolSize = 0;
-    if (/[a-z]/.test(password)) poolSize += 26;
-    if (/[A-Z]/.test(password)) poolSize += 26;
-    if (/[0-9]/.test(password)) poolSize += 10;
-    if (/[^a-zA-Z0-9]/.test(password)) poolSize += 32; // Special chars
-
-    // 2. Calculate Entropy (Bits) = Length * log2(PoolSize)
-    const entropy = password.length * Math.log2(poolSize || 1);
-
-    // 3. Estimate Crack Time (Assuming 1 Trillion guesses/sec for a supercomputer)
-    const guessesPerSec = 1_000_000_000_000; 
-    const totalGuesses = Math.pow(2, entropy);
-    const seconds = totalGuesses / guessesPerSec;
-
-    // 4. Visual Updates
-    let color = 'red';
-    let width = '10%';
+    // 3. Convert to Text
+    let extractedStr = binaryToString(binaryData);
     
-    if (entropy > 50) { color = 'orange'; width = '40%'; }
-    if (entropy > 70) { color = '#fbbf24'; width = '70%'; } // Yellow
-    if (entropy > 90) { color = '#10b981'; width = '100%'; } // Green
+    // 4. Decrypt if needed
+    const password = document.getElementById('pass-decode').value;
+    if (password) {
+        try {
+            extractedStr = decryptData(extractedStr, password);
+        } catch (e) {
+            return alert("Wrong Password or Corrupt Data");
+        }
+    }
 
-    fill.style.width = width;
-    fill.style.background = color;
-    timeText.innerText = formatTime(seconds);
-    timeText.style.color = color;
+    // 5. Parse JSON
+    try {
+        const result = JSON.parse(extractedStr);
+        document.getElementById('result-area').classList.remove('hidden');
+
+        if (result.type === 'text') {
+            document.getElementById('text-result').innerText = result.data;
+            document.getElementById('text-result').classList.remove('hidden');
+            document.getElementById('file-result').classList.add('hidden');
+        } else if (result.type === 'file') {
+            document.getElementById('found-filename').innerText = result.name;
+            document.getElementById('file-result').classList.remove('hidden');
+            document.getElementById('text-result').classList.add('hidden');
+            
+            // Setup download
+            const link = document.getElementById('download-secret-btn');
+            link.onclick = () => {
+                const a = document.createElement('a');
+                a.href = result.data;
+                a.download = result.name;
+                a.click();
+            };
+        }
+    } catch (e) {
+        // If JSON parse fails, it might be raw text or wrong password (if simple XOR used)
+        alert("Failed to parse data. Is the password correct?");
+    }
+});
+
+// --- STEG VISION (BIT-PLANE VISUALIZER) ---
+// Shows the LSB layer as visual noise
+function toggleStegVision() {
+    const preview = document.getElementById('preview-decode');
+    if (!preview.src) return;
+
+    canvas.width = preview.naturalWidth;
+    canvas.height = preview.naturalHeight;
+    ctx.drawImage(preview, 0, 0);
+    
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imgData.data;
+
+    // Multiply LSB by 255 to make it visible (0 becomes 0, 1 becomes 255/white)
+    for (let i = 0; i < pixels.length; i += 4) {
+        const lsb = pixels[i] & 1;
+        const val = lsb * 255;
+        pixels[i] = val;     // R
+        pixels[i+1] = val;   // G
+        pixels[i+2] = val;   // B
+        // Alpha remains 255
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    preview.src = canvas.toDataURL(); // Replace preview with Steg Vision
 }
 
-function formatTime(seconds) {
-    if (seconds < 1) return "Instantly";
-    if (seconds < 60) return "Few seconds";
-    if (seconds < 3600) return Math.round(seconds / 60) + " minutes";
-    if (seconds < 86400) return Math.round(seconds / 3600) + " hours";
-    if (seconds < 31536000) return Math.round(seconds / 86400) + " days";
-    if (seconds < 3153600000) return Math.round(seconds / 31536000) + " years";
-    return "Centuries";
+
+// --- UTILITIES ---
+function stringToBinary(str) {
+    return str.split('').map(char => {
+        return char.charCodeAt(0).toString(2).padStart(8, '0');
+    }).join('');
+}
+
+function binaryToString(bin) {
+    let str = '';
+    for (let i = 0; i < bin.length; i += 8) {
+        str += String.fromCharCode(parseInt(bin.substr(i, 8), 2));
+    }
+    return str;
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
+}
+
+function resetAll() {
+    coverImage = null;
+    secretFile = null;
+    document.getElementById('upload-cover').value = "";
+    document.getElementById('upload-secret').value = "";
+    document.getElementById('preview-cover').classList.add('hidden');
+    document.getElementById('encode-result').classList.add('hidden');
+    document.getElementById('secret-text').value = "";
+    document.getElementById('pass-encode').value = "";
+    document.getElementById('capacity-fill').style.width = "0%";
+}
+
+// Simple XOR Encryption (Replace with AES for Real Security)
+function encryptData(data, key) {
+    let result = '';
+    for(let i = 0; i < data.length; i++) {
+        result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return result;
+}
+
+const decryptData = encryptData; // XOR is symmetric
+
+// --- COMPARISON SLIDER LOGIC ---
+function initComparisonSlider() {
+    const slider = document.querySelector(".img-comp-slider");
+    const overlay = document.querySelector(".img-comp-overlay");
+    const container = document.querySelector(".img-comp-container");
+    let clicked = 0;
+    let w = container.offsetWidth;
+
+    slider.style.left = (w / 2) + "px";
+    overlay.style.width = (w / 2) + "px";
+
+    slider.addEventListener("mousedown", slideReady);
+    window.addEventListener("mouseup", slideFinish);
+    slider.addEventListener("touchstart", slideReady);
+    window.addEventListener("touchend", slideFinish);
+
+    function slideReady(e) {
+        e.preventDefault();
+        clicked = 1;
+        window.addEventListener("mousemove", slideMove);
+        window.addEventListener("touchmove", slideMove);
+    }
+
+    function slideFinish() {
+        clicked = 0;
+    }
+
+    function slideMove(e) {
+        if (clicked == 0) return false;
+        let pos = getCursorPos(e);
+        if (pos < 0) pos = 0;
+        if (pos > w) pos = w;
+        slide(pos);
+    }
+
+    function getCursorPos(e) {
+        let a = container.getBoundingClientRect();
+        let x = (e.changedTouches ? e.changedTouches[0].pageX : e.pageX) - a.left;
+        return x - window.pageXOffset;
+    }
+
+    function slide(x) {
+        overlay.style.width = x + "px";
+        slider.style.left = x + "px";
+    }
 }
