@@ -6,34 +6,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
-    let coverImage = null; // Stores the loaded image object
-    let secretFile = null; // Stores the file to hide (if any)
-    let currentMode = 'text'; // 'text' or 'file'
+    let coverImage = null; 
+    let secretFile = null; 
+    let currentMode = 'text'; 
 
     // --- NAVIGATION FUNCTIONS ---
     window.showApp = function(mode) {
-        // 1. Hide Landing, Show App Container
         landingPage.classList.add('hidden');
         appContainer.classList.remove('hidden');
         navbar.classList.remove('hidden');
         
-        // 2. Reset Theme Colors
         document.body.classList.remove('mode-encrypt', 'mode-decrypt');
         
-        // 3. Get Card Elements
         const cardEncode = document.getElementById('card-encode');
         const cardDecode = document.getElementById('card-decode');
 
-        // 4. CRITICAL: Force Hide BOTH cards first
         cardEncode.classList.add('hidden-card');
         cardDecode.classList.add('hidden-card');
         
-        // 5. Show only the requested one
         if (mode === 'encode') {
-            cardEncode.classList.remove('hidden-card'); // Show Encode
+            cardEncode.classList.remove('hidden-card');
             document.body.classList.add('mode-encrypt');
         } else {
-            cardDecode.classList.remove('hidden-card'); // Show Decode
+            cardDecode.classList.remove('hidden-card');
             document.body.classList.add('mode-decrypt');
         }
     };
@@ -173,13 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const lengthBin = binaryData.length.toString(2).padStart(32, '0');
         let dataIndex = 0;
 
-        // Embed Header
         for (let i = 0; i < 32; i++) {
             if (lengthBin[i] === '1') pixels[i * 4] |= 1;
             else pixels[i * 4] &= ~1;
         }
 
-        // Embed Body
         for (let i = 0; i < binaryData.length; i++) {
             const pixelIdx = (i + 32) * 4;
             if (binaryData[dataIndex] === '1') pixels[pixelIdx] |= 1;
@@ -200,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('encode-result').classList.remove('hidden');
         document.getElementById('download-link').href = resultURL;
         
-        // Initialize slider only after images are set
         setTimeout(initComparisonSlider, 100);
     });
 
@@ -283,9 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < pixels.length; i += 4) {
             const lsb = pixels[i] & 1;
             const val = lsb * 255;
-            pixels[i] = val;     // R
-            pixels[i+1] = val;   // G
-            pixels[i+2] = val;   // B
+            pixels[i] = val;    
+            pixels[i+1] = val;  
+            pixels[i+2] = val;  
         }
 
         ctx.putImageData(imgData, 0, 0);
@@ -335,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const decryptData = encryptData; 
 
+    // --- RESPONSIVE COMPARISON SLIDER LOGIC ---
     function initComparisonSlider() {
         const slider = document.querySelector(".img-comp-slider");
         const overlay = document.querySelector(".img-comp-overlay");
@@ -342,30 +335,44 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if(!slider || !overlay || !container) return;
 
-        let clicked = 0;
-        let w = container.offsetWidth;
+        // Function to set dimensions
+        function setDimensions() {
+            let w = container.offsetWidth;
+            slider.style.left = (w / 2) + "px";
+            overlay.style.width = (w / 2) + "px";
+        }
 
-        slider.style.left = (w / 2) + "px";
-        overlay.style.width = (w / 2) + "px";
+        // Initialize
+        setDimensions();
+
+        // Re-calculate on window resize (Responsive Fix)
+        window.addEventListener('resize', setDimensions);
+
+        let clicked = 0;
 
         slider.addEventListener("mousedown", slideReady);
         window.addEventListener("mouseup", slideFinish);
-        slider.addEventListener("touchstart", slideReady);
+        slider.addEventListener("touchstart", slideReady, {passive: false});
         window.addEventListener("touchend", slideFinish);
 
         function slideReady(e) {
-            e.preventDefault();
+            // Prevent scrolling on touch devices while sliding
+            if(e.type === 'touchstart') e.preventDefault(); 
             clicked = 1;
             window.addEventListener("mousemove", slideMove);
-            window.addEventListener("touchmove", slideMove);
+            window.addEventListener("touchmove", slideMove, {passive: false});
         }
 
         function slideFinish() {
             clicked = 0;
+            // Clean up event listeners
+            window.removeEventListener("mousemove", slideMove);
+            window.removeEventListener("touchmove", slideMove);
         }
 
         function slideMove(e) {
             if (clicked == 0) return false;
+            let w = container.offsetWidth;
             let pos = getCursorPos(e);
             if (pos < 0) pos = 0;
             if (pos > w) pos = w;
